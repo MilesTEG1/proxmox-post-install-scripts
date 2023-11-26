@@ -32,7 +32,8 @@
 port_ssh="99"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-backup_folder=~/"config-proxmox/backup-$(date +%Y-%m-%d--%Hh%Mm%Ss)"
+script_folder="$(pwd)"
+backup_folder="${script_folder}/0-0-backup_files--$(date +%Y-%m-%d--%Hh%Mm%Ss)"
 mkdir -p "${backup_folder}"
 # ~~~~~~~~~~~ Dossier de backup ~~~~~~~~~~~ #
 
@@ -96,11 +97,12 @@ EOL
 printf "\n-- Ajout d'options pour nano terminé.\n"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+read -p "Appuyer sur ENTRER pour continuer sur la désactivation de l'IPv6. Ou CTRL+C pour arrêter le script."
 
 # ~~~~~~~~ Désactivation de l'IPv6 ~~~~~~~~ #
 printf "\n-- Désactivation de l'IPv6"
 printf "\n   Copie de sauvegarde du fichier modifié dans '/etc/ssh/sshd_config.BAK'.\n"
-cp --parents >/etc/sysctl.conf "${backup_folder}"
+cp --parents /etc/sysctl.conf "${backup_folder}"
 
 cat >>/etc/sysctl.conf <<EOL
 ###################################################################
@@ -123,19 +125,16 @@ sysctl -p
 printf "\n-- Désactivation de l'IPv6 terminée.\n"
 # # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
-
-# ~~~~~~~~ Proxmox VE Post Install ~~~~~~~~ #
-printf "\n-- Lancement du script post-pve-install."
-bash -c "$(wget -qLO - https://github.com/tteck/Proxmox/raw/main/misc/post-pve-install.sh)"
-printf "\n-- Script post-pve-install terminé.\n"
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-
+read -p "Appuyer sur ENTRER pour continuer sur l'installation de sudo. Ou CTRL+C pour arrêter le script."
 
 # ~~~~~~~~~~ Installation de sudo ~~~~~~~~~ #
 printf "\n-- Installation de sudo"
+apt update
 apt install -y sudo
 printf "\n-- Installation de sudo terminé."
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+read -p "Appuyer sur ENTRER pour continuer sur la suppression de l'avertissement de licence. Ou CTRL+C pour arrêter le script."
 
 
 # # ~~ Supprimer l'avertissement de licence ~ #
@@ -145,18 +144,36 @@ cp --parents /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js "${backu
 sed -Ezi.bak "s/(Ext.Msg.show\(\{\s+title: gettext\('No valid sub)/void\(\{ \/\/\1/g" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js && systemctl restart pveproxy.service
 printf "\n-- Suppression de l'avertissement de licence dans PVE terminée.\n"
 
-# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
-# ~~~~~~ Création de l'utilisateur et ~~~~~ #
-# ~~~     des groupes personnalisés     ~~~ #
-printf "\n-- Lancement du script de création de l'utilisateur administrateur personnalisé et des groupes personnalisés"
-bash -c ~/config-proxmox/"0-1-user-pam--groupes-pve-creation.sh"
-printf "\n-- Création de l'utilisateur et des groupes personnalisés effectués.\n"
-# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+read -p "Appuyer sur ENTRER pour continuer sur PBS Post Install script. Ou CTRL+C pour arrêter le script."
 
-# ~~~~~~ Installer ZSH et OhMySZH et PowerLevel10K ~~~~~ #
-# ~~~            avec quelques extensions            ~~~ #
-printf "\n-- Lancement du script d'installation ZSH et OhMySZH et PowerLevel10K avec quelques extensions pour l'utilisateur root"
-bash -c ~/config-proxmox/"1-0-root-install_zsh_and_co.sh"
-printf "\n-- Installation ZSH et OhMySZH et PowerLevel10K avec quelques extensions terminée.\n"
-# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+# ~~~~~ Installation et configuration ~~~~~ #
+# ~~~~~~~~~~~~~ des locales FR ~~~~~~~~~~~~ #
+# Source : https://serverfault.com/a/894545
+# Install locales package
+apt-get install -y locales
+# Uncomment fr_FR.UTF-8 for inclusion in generation
+cp --parents /etc/locale.gen "${backup_folder}";
+
+sed -i 's/^# *\(fr_FR.UTF-8\)/\1/' /etc/locale.gen
+# Generate locale
+locale-gen
+# Export env vars
+echo "export LC_ALL=fr_FR.UTF-8" >> ~/.bashrc
+echo "export LANG=fr_FR.UTF-8" >> ~/.bashrc
+echo "export LANGUAGE=fr_FR.UTF-8" >> ~/.bashrc
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+
+
+# ~~~~~~~~ PBS Post Install ~~~~~~~~ #
+printf "\n-- Lancement du script post-pve-install."
+cp -r --parents /etc/apt/{sources.list,sources.list.d} "${backup_folder}";
+bash -c "$(wget -qLO - https://github.com/tteck/Proxmox/raw/main/misc/post-pve-install.sh)"
+printf "\n-- Script post-pve-install terminé.\n"
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+printf "\n-- Modification du fichier /etc/apt/sources.list avec un dépôt FR et les composants non-free non-free-firmware"
+cp sources.list-modified /etc/apt/sources.list
+
+# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
